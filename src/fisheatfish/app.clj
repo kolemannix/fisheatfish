@@ -27,7 +27,9 @@
   )
 
 (defn- image-for-fish [fish]
-  (if (> 0.5 (rand)) blue-fish blue-fish))
+  (case (:type fish)
+    :basic blue-fish
+    :bluefish gold-fish))
 
 (defn- draw-fish
   "Draw the given fish to the given graphics context"

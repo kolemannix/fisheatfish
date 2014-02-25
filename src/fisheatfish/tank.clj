@@ -1,4 +1,5 @@
-(ns fisheatfish.tank)
+(ns fisheatfish.tank
+  (:require [fisheatfish.behaviors.bluefish :as bluefish]))
 
 (def ^{:private true} refresh-interval 1000) ; 1/10 second
 (def id-counter (atom 0))
@@ -16,51 +17,54 @@
 
 (defn- random-aggression [] (.nextDouble (java.util.Random.)))
 
-(defrecord Fish [id aggression position]
+(defrecord Fish [id aggression position type]
   Object
-  (toString [this] (str "Fish " id ": " position))
-  )
+  (toString [this] (str "Fish " id ": " position)))
 
 (defrecord Tank [size fish-list])
 
-(defn behave "Main update function for a fish"
+
+(defn basic-behave "Main update function for a fish"
   [fish tank]
-  ;; (println (str "I am fish number " (:id fish) " and I am behaving"))
   (let [[old-x old-y] (:position fish)
         new-fish (assoc fish :position [(double (+ old-x 2.0)) (double (+ old-y 2.0))])]
-    (do
-      (println "old fish\n" (:position fish))
-      (println "new fish\n" (:position new-fish))
-      new-fish))
-  )
-(defn- add-fish
-  ([tank] (add-fish (random-aggression) (random-position tank) tank))
-  ([aggression position tank]
-     (assoc tank :fish-list (conj (:fish-list tank) (->Fish (next-id) aggression position)))))
+    new-fish))
+
+(def bluefish-behave bluefish/behave)
+
+(defn behavior-lookup [{type :type}]
+  (case type
+    :basic basic-behave
+    :bluefish bluefish-behave))
+
+(defn- add-basic-fish [tank]
+  (let [fish (->Fish (next-id) 5 (random-position tank) :basic)] 
+    (assoc tank :fish-list (conj (:fish-list tank) fish))))
+
+(defn add-bluefish [tank]
+  (let [fish (->Fish (next-id) 5 (random-position tank) :bluefish)]
+    (assoc tank :fish-list (conj (:fish-list tank) fish))))
 
 (defn create-tank 
   "Creates a fish tank agent"
-  ([size]
-     (let [new-tank (->Tank size (list))]
-       new-tank)))
+  [size]
+  (->Tank size (list)))
 
 (defn test-tank "Returns a pre-populated tank for testing"
   [size]
   (-> (create-tank size)
-      (add-fish)
-      (add-fish)
-      (add-fish)
-      (add-fish)))
+      (add-basic-fish)
+      (add-basic-fish)
+      (add-basic-fish)
+      (add-bluefish)))
 
 (defn- do-cycle
   "Brings the tank to its next state"
   [tank]
-  (do (swap! cycle-counter inc))
-  (let [fish-behave (fn [fish] (behave fish tank))
+  (swap! cycle-counter inc)
+  (let [fish-behave (fn [fish] ((behavior-lookup fish) fish tank))
         new-fish-list (doall (map fish-behave (:fish-list tank)))]
-    (do
-      ;; (println "new fish list\n")
-      (assoc tank :fish-list new-fish-list))))
+    (assoc tank :fish-list new-fish-list)))
 
 (defn- simulation-loop [t callback-fn]
   (loop [tank t]
